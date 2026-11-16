@@ -1,0 +1,22 @@
+$ npm run test:e2e
+
+> outfit-puzzle@0.1.0 test:e2e
+> playwright test
+
+Error: E2E belum dijalankan: managed environment membutuhkan E2E_BASE_URL dari preview resmi. Tidak memulai server/browser alternatif. Di komputer lokal: npx playwright install chromium, lalu npm run test:e2e. Pada managed environment yang mendukung browser, isi E2E_BASE_URL dengan URL persis dari sites-preview start.
+    at file:///workspace/work/outfit-puzzle/playwright.config.ts:5:71
+    at ModuleJob.run (node:internal/modules/esm/module_job:561:25)
+    at node:internal/modules/esm/loader:647:26
+    at requireOrImport (/workspace/work/outfit-puzzle/node_modules/playwright/lib/common/index.js:1155:12)
+    at loadUserConfig (/workspace/work/outfit-puzzle/node_modules/playwright/lib/common/index.js:1361:46)
+    at loadConfig (/workspace/work/outfit-puzzle/node_modules/playwright/lib/common/index.js:1368:22)
+    at Object.loadConfigFromFile (/workspace/work/outfit-puzzle/node_modules/playwright/lib/common/index.js:1586:10)
+    at runTests (/workspace/work/outfit-puzzle/node_modules/playwright/lib/cli/testActions.js:44:18)
+    at _Command.<anonymous> (/workspace/work/outfit-puzzle/node_modules/playwright/lib/program.js:55:7)
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
+
+EXIT_CODE=1
