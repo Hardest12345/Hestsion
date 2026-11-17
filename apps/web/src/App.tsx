@@ -2,20 +2,33 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowRight, Check, CheckCheck, ChevronRight, CircleHelp, Download, Heart, Layers, Leaf, LockKeyhole, LockKeyholeOpen, Plus, Puzzle, Redo2, Search, Shirt, SlidersHorizontal, Sparkles, Trash2, Undo2, X, Archive, RotateCcw } from 'lucide-react';
 import { ClothingItemSchema, SLOTS, REQUIRED, COLORS, colorHex, colorLabel, slotLabel, categoryLabel, candidateViolations, manualWarnings, type ClothingItem, type Slot, type RecommendationMode, type RecommendationRequest, type RecommendationResult, type BoardDraft } from '../../../packages/domain';
 import { DEMO_OWNER } from '../../../packages/domain/fixtures';
-import { STORAGE_KEY, freshData, isResultStale, saveOutfit, type SavedOutfit } from '../../../packages/domain/repository';
+import { storageKeyFor, freshData, isResultStale, saveOutfit, type SavedOutfit } from '../../../packages/domain/repository';
 import { recommend } from '../../../packages/recommender';
 import { useStudio } from './useStudio';
 import { Garment } from './Garment';
 import { ItemForm, ItemTools, Modal } from './components';
+import { CloudProvider, useCloud } from './cloud';
+import { CloudAccount } from './CloudAccount';
 
 type ResultState = { response: RecommendationResult; request: RecommendationRequest; catalogRevision: number };
 type Confirmation = { title: string; description: string; action: () => void };
 const occasionLabel = { daily: 'Sehari-hari', work: 'Ke kantor', presentation: 'Presentasi', weekend: 'Akhir pekan' } as const;
 const today = (at = new Date().toISOString()) => new Intl.DateTimeFormat('sv-SE').format(new Date(at));
 
-export function App() {
-  const studio = useStudio();
-  const { data, current, persist, message, setMessage, act, replaceBoard } = studio;
+export function App() { return <CloudProvider><ConnectedStudio/></CloudProvider>; }
+function ConnectedStudio() {
+  const cloud = useCloud();
+  if (cloud.loading) return <div className="empty-state" role="status">Memeriksa sesi privat…</div>;
+  const ownerId = cloud.user?.id ?? DEMO_OWNER;
+  return <StudioScreen key={ownerId} ownerId={ownerId}/>;
+}
+function StudioScreen({ ownerId }: { ownerId: string }) {
+  const cloud = useCloud();
+  const studio = useStudio(ownerId);
+  const { data, current, persist, syncCloudItems, message, setMessage, act, replaceBoard } = studio;
+  const storageKey = storageKeyFor(ownerId);
+  const syncing = useRef(0);
+  const mutatingCloud = useRef(false);
   const [page, setPage] = useState<'studio' | 'wardrobe' | 'outfits'>('studio');
   const [mobilePanel, setMobilePanel] = useState<'board' | 'wardrobe' | 'ideas'>('board');
   const [activeSlot, setActiveSlot] = useState<Slot | null>(null);
@@ -36,9 +49,28 @@ export function App() {
   const requestCount = useRef(0);
   const [externalChange, setExternalChange] = useState(false);
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => { if (event.key === STORAGE_KEY || event.key === null) { setExternalChange(true); setMessage('Data berubah di tab lain. Muat ulang sebelum melanjutkan agar perubahanmu tidak menimpa data terbaru.'); } };
+    const onStorage = (event: StorageEvent) => { if (event.key === storageKey || event.key === null) { setExternalChange(true); setMessage('Data berubah di tab lain. Muat ulang sebelum melanjutkan agar perubahanmu tidak menimpa data terbaru.'); } };
     window.addEventListener('storage', onStorage); return () => window.removeEventListener('storage', onStorage);
-  }, [setMessage]);
+  }, [setMessage, storageKey]);
+  useEffect(() => {
+    if (!cloud.api || !cloud.user) return;
+    let cancelled = false;
+    let pending = false;
+    const api = cloud.api;
+    const refresh = async () => {
+      if (pending || mutatingCloud.current) return;
+      pending = true;
+      const sequence = ++syncing.current;
+      try {
+        const items = await api.list();
+        if (!cancelled && sequence === syncing.current) syncCloudItems(items);
+      } catch (error) { if (!cancelled) setMessage(error instanceof Error ? error.message : 'Lemari cloud belum bisa dibaca.'); }
+      finally { pending = false; }
+    };
+    void refresh();
+    const timer = window.setInterval(() => { if (!document.hidden) void refresh(); }, 4000);
+    return () => { cancelled = true; window.clearInterval(timer); };
+  }, [cloud.api, cloud.user, syncCloudItems, setMessage]);
   const stale = result ? isResultStale(data.board, data.catalogRevision, data.intent, { board: result.request.board, catalogRevision: result.catalogRevision, intent: result.request.intent }) : false;
   const preview = !stale ? result?.response.candidates.find(c => c.id === previewId) : undefined;
   const visibleBoard = preview ? { ...data.board, slots: preview.slots } : data.board;
@@ -50,19 +82,36 @@ export function App() {
     if (!SLOTS.includes(item.category as Slot)) { setMessage('Kategori ini belum didukung pada template awal. Item tetap tersimpan di lemari.'); return; }
     act({ type: 'place', slot: slot ?? activeSlot ?? item.category as Slot, itemId: item.id }); setPreviewId(null);
   }
-  function updateItem(item: ClothingItem) {
+  async function updateItem(item: ClothingItem, file: File | null = null, assetId: string = crypto.randomUUID()) {
     const parsed = ClothingItemSchema.safeParse(item);
     setFormError('');
     if (!parsed.success) { setFormError('Data item tidak valid. Periksa nama dan tag (maksimal 12 tag, 40 karakter per tag).'); return; }
     const previous = current.current.items.find(i => i.id === item.id);
     if (previous && previous.category !== item.category && Object.values(current.current.board.slots).includes(item.id)) { setFormError('Lepaskan item dari papan sebelum mengganti kategorinya.'); return; }
+    if (cloud.user && cloud.api) {
+      mutatingCloud.current = true; ++syncing.current;
+      try {
+        await cloud.api.save(parsed.data, file, assetId, !!previous);
+        syncCloudItems(await cloud.api.list());
+        setItemEditor(null); setMessage(file ? 'Foto tersimpan privat. Pembersihan latar masuk antrean; kamu bisa melanjutkan merakit.' : 'Pakaian diperbarui di lemari privat.');
+      } catch (error) { setFormError(error instanceof Error ? error.message : 'Unggahan belum tersimpan. Coba lagi.'); }
+      finally { mutatingCloud.current = false; }
+      return;
+    }
     const nextItems = previous ? current.current.items.map(i => i.id === item.id ? parsed.data : i) : [...current.current.items, parsed.data];
     if (persist({ ...current.current, items: nextItems, catalogRevision: current.current.catalogRevision + 1 })) { setItemEditor(null); setMessage(studio.blocked ? 'Lemari diperbarui di mode sementara. Data belum tersimpan permanen.' : 'Lemari diperbarui dan tersimpan di perangkat ini.'); }
     else setFormError('Perubahan belum tersimpan. Penyimpanan gagal atau ada perubahan di tab lain. Tutup dialog dan muat ulang untuk memeriksa data terbaru.');
   }
   function deleteItem(item: ClothingItem) {
     if (Object.values(current.current.board.slots).includes(item.id)) { setMessage('Lepaskan item dari papan terlebih dahulu. Buka kunci jika diperlukan.'); return; }
-    setConfirm({ title: 'Hapus item dari lemari?', description: `${item.name} akan dihapus. Outfit lama mempertahankan snapshot dan diberi tanda item tidak tersedia.`, action: () => { if (persist({ ...current.current, items: current.current.items.filter(i => i.id !== item.id), catalogRevision: current.current.catalogRevision + 1 })) setMessage('Item dihapus. Snapshot outfit lama tetap tersimpan.'); } });
+    setConfirm({ title: 'Hapus item dari lemari?', description: `${item.name} akan dihapus. Outfit lama mempertahankan snapshot dan diberi tanda item tidak tersedia.`, action: async () => {
+      if (cloud.user && cloud.api) {
+        mutatingCloud.current = true; ++syncing.current;
+        try { await cloud.api.remove(item.id); syncCloudItems(await cloud.api.list()); setMessage('Pakaian dan file fotonya dihapus. Snapshot metadata outfit lama tetap ada.'); }
+        catch (error) { setMessage(error instanceof Error ? error.message : 'Item belum dapat dihapus.'); }
+        finally { mutatingCloud.current = false; }
+      } else if (persist({ ...current.current, items: current.current.items.filter(i => i.id !== item.id), catalogRevision: current.current.catalogRevision + 1 })) setMessage('Item dihapus. Snapshot outfit lama tetap tersimpan.');
+    } });
   }
   async function requestRecommendations() {
     const n = ++requestCount.current;
@@ -73,7 +122,7 @@ export function App() {
     // A local asynchronous boundary exercises revision protection without any network.
     await new Promise(resolve => window.setTimeout(resolve, 300));
     try {
-      const response = await recommend(request, items, DEMO_OWNER);
+      const response = await recommend(request, items, ownerId);
       if (n !== requestCount.current) return;
       setResult({ request, response, catalogRevision });
       const expired = isResultStale(current.current.board, current.current.catalogRevision, current.current.intent, { board: request.board, catalogRevision, intent: request.intent });
@@ -84,7 +133,7 @@ export function App() {
   function applyPreview() {
     if (!result || !preview) return;
     if (isResultStale(current.current.board, current.current.catalogRevision, current.current.intent, { board: result.request.board, catalogRevision: result.catalogRevision, intent: result.request.intent })) { setMessage('Hasil sudah usang. Jalankan rekomendasi lagi.'); return; }
-    const errors = candidateViolations(preview, result.request, current.current.items, DEMO_OWNER);
+    const errors = candidateViolations(preview, result.request, current.current.items, ownerId);
     if (errors.length) { setMessage(errors.join(' ')); return; }
     const board: BoardDraft = { ...current.current.board, slots: structuredClone(preview.slots) };
     if (replaceBoard(board, 'recommendation', preview.id)) {
@@ -96,7 +145,7 @@ export function App() {
   function save(title: string) {
     setFormError('');
     try {
-      const outfit = saveOutfit(current.current, title, studio.source);
+      const outfit = saveOutfit(current.current, title, studio.source, ownerId);
       if (persist({ ...current.current, outfits: [outfit, ...current.current.outfits], events: [...current.current.events, studio.event('saved', outfit.id)] })) { setSaveOpen(false); setMessage(studio.blocked ? `“${outfit.title}” disimpan sementara. Data belum tersimpan permanen.` : `“${outfit.title}” tersimpan. Buka tab Outfit untuk memakainya kembali.`); }
       else setFormError('Outfit belum tersimpan. Penyimpanan gagal atau ada perubahan di tab lain. Tutup dialog dan muat ulang untuk memeriksa data terbaru.');
     } catch (error) { setFormError(error instanceof Error ? error.message : 'Outfit gagal disimpan.'); }
@@ -115,7 +164,7 @@ export function App() {
   }
   function downloadBackup() {
     let raw: string;
-    try { raw = window.localStorage.getItem(STORAGE_KEY) ?? JSON.stringify(current.current, null, 2); } catch { raw = JSON.stringify(current.current, null, 2); }
+    try { raw = window.localStorage.getItem(storageKey) ?? JSON.stringify(current.current, null, 2); } catch { raw = JSON.stringify(current.current, null, 2); }
     const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
     const a = document.createElement('a'); a.href = url; a.download = `outfit-puzzle-cadangan-${today()}.json`; a.click(); window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     setMessage('Cadangan diunduh. Simpan berkas ini secara pribadi.');
@@ -144,12 +193,12 @@ export function App() {
   return <div className="app-shell">
     <header className="topbar"><a className="brand" href="#studio" onClick={() => setPage('studio')} aria-label="Outfit Puzzle beranda"><span className="brand-mark"><Puzzle size={24}/></span>outfit<span className="brand-light">puzzle</span><span className="beta">STUDIO</span></a>
       <nav aria-label="Navigasi utama">{([['studio', 'Studio'], ['wardrobe', 'Lemari'], ['outfits', 'Outfit']] as const).map(([p, label]) => <button key={p} className={page === p ? 'active' : ''} aria-current={page === p ? 'page' : undefined} onClick={() => setPage(p)}>{label}{p === 'outfits' && data.outfits.filter(o => !o.archived).length > 0 && <span className="nav-count">{data.outfits.filter(o => !o.archived).length}</span>}</button>)}</nav>
-      <div className="top-actions"><span className="local-badge"><i/>{studio.blocked ? 'Mode sementara' : 'Demo lokal'}</span><button className="icon-btn help" onClick={() => setHelpOpen(true)} aria-label="Bantuan dan data lokal"><CircleHelp size={21}/></button><span className="avatar" aria-label="Profil lokal">K</span></div>
+      <div className="top-actions"><span className="local-badge mode-badge"><i/>{studio.blocked ? 'Mode sementara' : cloud.user ? 'Akun pribadi' : 'Demo lokal'}</span><CloudAccount/><button className="icon-btn help" onClick={() => setHelpOpen(true)} aria-label="Bantuan dan data lokal"><CircleHelp size={21}/></button><span className="avatar" aria-label="Profil lokal">K</span></div>
     </header>
     <main>
       <section className="intro"><div><div className="eyebrow"><span className="tiny-line"/> YOUR WARDROBE, REIMAGINED</div><h1>{page === 'studio' ? <>Baju yang ada. <em>Kemungkinan baru.</em></> : page === 'wardrobe' ? <>Kenali lagi <em>isi lemarimu.</em></> : <>Rakitan kecil. <em>Gaya milikmu.</em></>}</h1><p>{page === 'studio' ? 'Mulai dari satu keping. Rakit sendiri, atau temukan padanan dari lemarimu.' : page === 'wardrobe' ? 'Satu pakaian, banyak cerita. Kelola keping yang benar-benar kamu punya.' : 'Simpan yang kamu suka. Pakai lagi dengan cerita yang berbeda.'}</p></div><div className="intro-note"><span className="note-star">✳</span><span>Gaya baru tak selalu<br/>butuh baju baru.</span></div></section>
-      <div className={`notice ${message || externalChange ? '' : 'quiet'}`} role="status" aria-live="polite" aria-atomic="true"><span>{message || 'Semua pakaian adalah data demo fiktif. Rakitan dan perubahan tersimpan hanya di browser ini.'}</span>{externalChange && <button onClick={() => window.location.reload()}>Muat ulang</button>}</div>
-      {studio.blocked && <div className="warning">{message || 'Mode sementara: perubahan belum tersimpan permanen.'} <button onClick={downloadBackup}>Unduh cadangan data lama</button><button onClick={() => setConfirm({ title: 'Reset penyimpanan lokal?', description: 'Data lokal lama akan diganti dengan demo baru. Unduh cadangan terlebih dahulu jika ingin menyimpannya.', action: () => { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(freshData())); window.location.reload(); } catch { setMessage('Penyimpanan masih diblokir oleh browser. Aktifkan penyimpanan atau gunakan browser lain.'); } } })}>Reset setelah cadangkan</button></div>}
+      <div className={`notice ${message || externalChange ? '' : 'quiet'}`} role="status" aria-live="polite" aria-atomic="true"><span>{message || (cloud.user ? 'Pakaian dan foto disimpan privat di Supabase. Draft dan outfit masih lokal pada perangkat ini.' : 'Pakaian awal adalah demo fiktif. Masuk ke cloud untuk mengunggah foto pakaianmu sendiri.')}</span>{externalChange && <button onClick={() => window.location.reload()}>Muat ulang</button>}</div>
+      {studio.blocked && <div className="warning">{message || 'Mode sementara: perubahan belum tersimpan permanen.'} <button onClick={downloadBackup}>Unduh cadangan data lama</button><button onClick={() => setConfirm({ title: 'Reset penyimpanan lokal?', description: 'Data lokal lama akan diganti dengan demo baru. Unduh cadangan terlebih dahulu jika ingin menyimpannya.', action: () => { try { window.localStorage.setItem(storageKey, JSON.stringify(freshData(ownerId))); window.location.reload(); } catch { setMessage('Penyimpanan masih diblokir oleh browser. Aktifkan penyimpanan atau gunakan browser lain.'); } } })}>Reset setelah cadangkan</button></div>}
       {page === 'studio' && <>
         <div className="mobile-tabs">{([['board', 'Papan'], ['wardrobe', 'Lemari'], ['ideas', 'Saran']] as const).map(([panel, title]) => <button key={panel} className={mobilePanel === panel ? 'active' : ''} onClick={() => setMobilePanel(panel)}>{title}</button>)}</div>
         <div className={`studio-layout mobile-${mobilePanel}`}><div className="rack-column">{rack}</div>
@@ -164,7 +213,7 @@ export function App() {
                 const item = data.items.find(i => i.id === id) ?? data.outfits.flatMap(o => o.itemSnapshots).find(i => i.id === id);
                 const locked = data.board.lockedSlots.includes(slot);
                 const notAvailable = !!id && !data.items.some(i => i.id === id && i.status === 'available');
-                const ghost: ClothingItem = { id: 'ghost', ownerId: DEMO_OWNER, name: slotLabel[slot].toLowerCase(), category: slot, primaryColor: null, formality: null, status: 'available', layerWarmth: null, styleTags: [] };
+                const ghost: ClothingItem = { id: 'ghost', ownerId, name: slotLabel[slot].toLowerCase(), category: slot, primaryColor: null, formality: null, status: 'available', layerWarmth: null, styleTags: [] };
                 return <div className={`puzzle-slot slot-${slot} ${id ? 'filled' : ''} ${locked ? 'locked' : ''} ${activeSlot === slot ? 'selected' : ''}`} key={slot} data-testid={`slot-${slot}`} onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }} onDrop={e => { e.preventDefault(); const dropId = e.dataTransfer.getData('application/x-outfit-item'); const dropItem = data.items.find(i => i.id === dropId); if (dropItem) place(dropItem, slot); else setMessage('Item drag tidak dikenali di lemari ini.'); }}>
                   <div className="slot-topline"><span>{String(index + 1).padStart(2, '0')} <b>{slotLabel[slot]}</b></span><span>{locked ? <LockKeyhole size={12}/> : slot === 'outer' ? 'OPSIONAL' : 'WAJIB'}</span></div>
                   <button className="slot-body" onClick={() => { setActiveSlot(activeSlot === slot ? null : slot); setMobilePanel('wardrobe'); }} aria-label={`Pilih slot ${slotLabel[slot]}${locked ? ', terkunci' : ''}`} aria-pressed={activeSlot === slot}>
@@ -223,12 +272,16 @@ export function App() {
             </div></article>;
         })}</div>
       </section>}
-      <footer className="page-footer"><span><Puzzle size={14}/> Sedikit keping. Banyak kemungkinan.</span><span>OUTFIT PUZZLE / LOCAL STUDIO · V0.1</span></footer>
+      <footer className="page-footer"><span><Puzzle size={14}/> Sedikit keping. Banyak kemungkinan.</span><span>OUTFIT PUZZLE / STUDIO · V0.2</span></footer>
     </main>
     {preview && mobilePanel === 'board' && page === 'studio' && <div className="mobile-preview-actions"><button className="secondary" onClick={() => setPreviewId(null)}>Batal</button><button className="primary" onClick={applyPreview}><Check size={15}/>Terapkan pratinjau</button></div>}
-    {itemEditor && <ItemForm item={itemEditor === 'new' ? undefined : itemEditor} error={formError} onClose={() => { setItemEditor(null); setFormError(''); }} onSubmit={updateItem}/>}
+    {itemEditor && <ItemForm item={itemEditor === 'new' ? undefined : data.items.find(i => i.id === itemEditor.id) ?? itemEditor} error={formError} ownerId={ownerId} cloudEnabled={!!cloud.user} onRetry={itemEditor !== 'new' ? async () => {
+      if (!cloud.api) return;
+      try { await cloud.api.retry(itemEditor.id); syncCloudItems(await cloud.api.list()); setFormError(''); }
+      catch (error) { setFormError(error instanceof Error ? error.message : 'Pemrosesan belum bisa diulang.'); }
+    } : undefined} onClose={() => { setItemEditor(null); setFormError(''); }} onSubmit={updateItem}/>}
     {saveOpen && <Modal title="Simpan cerita outfitmu" onClose={() => { setSaveOpen(false); setFormError(''); }}><p className="muted">{filled === 3 ? 'Semua keping wajib sudah ada. Beri nama agar mudah ditemukan lagi.' : 'Papan belum lengkap. Kamu bisa menyimpannya sebagai draft.'}</p>{warnings.map(w => <p className="warning" key={w}>{w}</p>)}{formError && <p className="warning" role="alert">{formError}</p>}<form className="form-stack" onSubmit={e => { e.preventDefault(); save(String(new FormData(e.currentTarget).get('title'))); }}><label>Nama outfit<input name="title" required maxLength={80} placeholder="Misalnya: Presentasi, tetap santai" autoFocus/></label><button className="primary" type="submit"><Check size={16}/>Simpan {filled === 3 ? 'outfit' : 'draft'}</button></form></Modal>}
     {confirm && <Modal title={confirm.title} onClose={() => setConfirm(null)}><p className="muted">{confirm.description}</p><div className="dialog-actions"><button className="secondary" onClick={() => setConfirm(null)}>Batal</button><button className="primary" onClick={() => { confirm.action(); setConfirm(null); }}>Lanjutkan</button></div></Modal>}
-    {helpOpen && <Modal title="Studio kecil, kemungkinan besar" onClose={() => setHelpOpen(false)}><div className="help-content"><p>1. Klik pakaian untuk memasang ke slot yang sesuai. Untuk memilih slot sendiri, klik slot terlebih dahulu. Tombol bisa dipakai dengan Tab, Enter, dan Spasi.</p><p>2. Kunci keping yang harus tetap. Lengkapi hanya mengisi slot kosong; Susun dapat mengganti keping terbuka; Ganti slot hanya mengubah pilihanmu.</p><p>3. Pilih alternatif untuk pratinjau, terapkan, lalu simpan. Favorit dan “dipakai” dicatat terpisah di tab Outfit.</p><p><b>Demo lokal.</b> Semua ilustrasi dan pakaian awal adalah fiktif. Rekomendasi memakai aturan sederhana, belum model AI. Tidak ada login, pengiriman data, atau training. Bahasa natural, foto, dan sinkronisasi cloud menyusul.</p><p>Data disimpan di browser/perangkat ini. Menghapus data browser akan menghapus lemarimu. Riwayat Undo/Redo hanya berlaku di sesi aktif. Cadangan JSON berisi data dan riwayat lokal; fitur impor cadangan belum tersedia di versi ini.</p><button className="secondary" onClick={downloadBackup}><Download size={16}/>Unduh cadangan data</button></div></Modal>}
+    {helpOpen && <Modal title="Studio kecil, kemungkinan besar" onClose={() => setHelpOpen(false)}><div className="help-content"><p>1. Klik pakaian untuk memasang ke slot yang sesuai. Untuk memilih slot sendiri, klik slot terlebih dahulu. Tombol bisa dipakai dengan Tab, Enter, dan Spasi.</p><p>2. Kunci keping yang harus tetap. Lengkapi hanya mengisi slot kosong; Susun dapat mengganti keping terbuka; Ganti slot hanya mengubah pilihanmu.</p><p>3. Pilih alternatif untuk pratinjau, terapkan, lalu simpan. Favorit dan “dipakai” dicatat terpisah di tab Outfit.</p><p><b>{cloud.user ? 'Lemari cloud privat.' : 'Demo lokal.'}</b> Ilustrasi dan pakaian demo adalah fiktif. Rekomendasi memakai aturan sederhana, belum model hasil training. Pada akun cloud, foto dan pakaian disimpan privat; foto asli dan hasil tanpa latar dipisah. Tidak ada penggunaan foto untuk training. Bahasa natural dan sinkronisasi outfit belum tersedia.</p><p>Data demo, draft, outfit, dan riwayat disimpan di browser per akun. Pada mode cloud, pakaian dan foto tetap ada di Supabase meski cache browser dihapus. Riwayat Undo/Redo hanya berlaku di sesi aktif. Cadangan JSON berisi metadata dan referensi foto, bukan file gambar. Fitur impor cadangan belum tersedia.</p><button className="secondary" onClick={downloadBackup}><Download size={16}/>Unduh cadangan data</button></div></Modal>}
   </div>;
 }

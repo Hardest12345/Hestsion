@@ -1,0 +1,13 @@
+{
+  "status": "passed",
+  "stages": [
+    "two_temporary_accounts_authenticated",
+    "real_api_upload_normalized_private_original_and_queued",
+    "live_rls_owner_isolation_and_worker_rpc_denial",
+    "live_worker_claim_segment_matting_finalize_and_private_webp_download",
+    "live_delete_removed_original_cutout_thumbnail_and_asset_rows"
+  ],
+  "temporaryAccountsDeleted": 2,
+  "temporaryImagesDeleted": true,
+  "scope": "Real Supabase Auth, PostgREST, Storage, API injection and Python model worker; no browser UI."
+}

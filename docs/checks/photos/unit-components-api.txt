@@ -1,0 +1,31 @@
+$ npm test
+
+> outfit-puzzle@0.2.0 test
+> vitest run
+
+
+ RUN  v3.2.7 /workspace/work/outfit-puzzle
+
+ ✓ |ui| apps/web/src/App.test.tsx (9 tests) 3847ms
+   ✓ Alur UI lokal (DOM simulasi, tanpa browser) > pasang via keyboard, kunci jeans, rekomendasi putih, pratinjau non-destruktif, ganti sepatu, undo/redo, simpan dan reload  1604ms
+   ✓ Alur UI lokal (DOM simulasi, tanpa browser) > respons usang tidak pernah mengubah papan setelah edit saat request berjalan  406ms
+   ✓ Alur UI lokal (DOM simulasi, tanpa browser) > konflik navy terkunci dan putih wajib tidak mengubah papan  485ms
+   ✓ Alur UI lokal (DOM simulasi, tanpa browser) > CRUD pakaian, status laundry, dan penghapusan terkonfirmasi  459ms
+   ✓ Alur UI lokal (DOM simulasi, tanpa browser) > reset mempertahankan lock, hapus semua meminta konfirmasi, undo memulihkan lock  335ms
+ ✓ |ui| apps/web/src/PhotoUpload.test.tsx (4 tests) 222ms
+ ✓ |domain| apps/api/src/media.test.ts (8 tests) 107ms
+ ✓ |domain| packages/domain/domain.test.ts (20 tests) 27ms
+ ✓ |domain| packages/domain/media.test.ts (4 tests) 8ms
+
+ Test Files  5 passed (5)
+      Tests  45 passed (45)
+   Start at  08:21:50
+   Duration  6.06s (transform 250ms, setup 0ms, collect 834ms, tests 4.21s, environment 413ms, prepare 180ms)
+
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.2
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.2
+npm notice To update run: npm install -g npm@12.2.2
+npm notice
+
+EXIT_CODE=0

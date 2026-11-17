@@ -1,0 +1,109 @@
+$ python scripts/test-db.py
+2f2dd5d12db6fdd7afb2847be01f064322747f6f5f9c63d5c512241892aa33df
+Running supabase/tests/bootstrap.sql
+CREATE ROLE
+CREATE ROLE
+CREATE ROLE
+CREATE SCHEMA
+CREATE TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+GRANT
+CREATE SCHEMA
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+CREATE FUNCTION
+CREATE FUNCTION
+GRANT
+GRANT
+GRANT
+GRANT
+INSERT 0 2
+Running supabase/migrations/202611170001_private_wardrobe_photos.sql
+BEGIN
+CREATE TABLE
+CREATE TABLE
+ALTER TABLE
+CREATE INDEX
+CREATE INDEX
+ALTER TABLE
+ALTER TABLE
+CREATE POLICY
+CREATE POLICY
+REVOKE
+GRANT
+GRANT
+GRANT
+GRANT
+INSERT 0 1
+DO
+CREATE POLICY
+CREATE POLICY
+CREATE POLICY
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+CREATE FUNCTION
+REVOKE
+GRANT
+GRANT
+COMMIT
+Running supabase/tests/isolation.sql
+BEGIN
+SET
+  set_config   
+---------------
+ authenticated
+(1 row)
+
+              set_config              
+--------------------------------------
+ 11111111-1111-4111-8111-111111111111
+(1 row)
+
+INSERT 0 1
+INSERT 0 1
+        enqueue_clothing_photo        
+--------------------------------------
+ 44444444-4444-4444-8444-444444444444
+(1 row)
+
+DO
+PASS: owner can upload/enqueue; worker-only operations denied
+              set_config              
+--------------------------------------
+ 22222222-2222-4222-8222-222222222222
+(1 row)
+
+DO
+INSERT 0 1
+INSERT 0 1
+        enqueue_clothing_photo        
+--------------------------------------
+ 66666666-6666-4666-8666-666666666666
+(1 row)
+
+PASS: B cannot read, reference, enqueue, or upload as A
+RESET
+DO
+PASS: composite FK rejects cross-owner photo even with RLS bypass
+SET
+  set_config  
+--------------
+ service_role
+(1 row)
+
+DO
+PASS: worker lease gate and completion
+RESET
+SET CONSTRAINTS
+DELETE 1
+SET CONSTRAINTS
+DO
+PASS: delete cascades without orphan database asset rows
+ROLLBACK
+outfit-puzzle-sql-9e050f679c
+
+EXIT_CODE=0

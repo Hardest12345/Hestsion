@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { PhotoRefSchema } from './media';
 
 export const SLOTS = ['top', 'bottom', 'shoes', 'outer'] as const;
 export type Slot = typeof SLOTS[number];
@@ -15,6 +16,7 @@ export const ClothingItemSchema = z.object({
   category: z.enum(CATEGORIES), primaryColor: z.enum(COLORS).nullable(), status: z.enum(['available', 'unavailable', 'archived']),
   formality: z.number().int().min(1).max(5).nullable(), styleTags: z.array(z.string().max(40)).max(12),
   layerWarmth: z.number().min(0).max(3).nullable(), illustration: z.enum(['shirt', 'tee', 'knit', 'trousers', 'jeans', 'sneakers', 'loafers', 'jacket', 'dress', 'scarf']).optional(),
+  photoRef: PhotoRefSchema.optional(),
 });
 export type ClothingItem = z.infer<typeof ClothingItemSchema>;
 export const SlotMapSchema = z.object({ top: z.string().min(1).nullable(), bottom: z.string().min(1).nullable(), shoes: z.string().min(1).nullable(), outer: z.string().min(1).nullable() });

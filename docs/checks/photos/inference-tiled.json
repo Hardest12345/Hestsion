@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "model": "birefnet-general-lite",
+  "pipeline": "birefnet-lite-alpha-lanczos-v1",
+  "input": [
+    1536,
+    1792
+  ],
+  "output": [
+    3072,
+    3584
+  ],
+  "alpha_min": 0,
+  "alpha_max": 255,
+  "fraction_fully_transparent": 0.6957515534900484,
+  "fraction_partial_alpha": 0.009501956758045015,
+  "load_seconds": 3.064,
+  "inference_pipeline_seconds": 11.289,
+  "scope": "One original synthetic garment only; not an evaluation on real wardrobe photos.",
+  "peak_rss_mib": 6886.92
+}

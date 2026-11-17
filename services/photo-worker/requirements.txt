@@ -1,0 +1,3 @@
+rembg[cpu]==2.0.76
+Pillow==12.1.0
+requests==2.32.5

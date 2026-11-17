@@ -1,9 +1,11 @@
 import { useId } from 'react';
 import { colorHex, type ClothingItem } from '../../../packages/domain';
+import { ClothingPhoto } from './ClothingPhoto';
 
 // Original vector thumbnails. No remote photos, fonts, or image services.
 export function Garment({ item, ghost = false }: { item: ClothingItem; ghost?: boolean }) {
   const uid = useId().replace(/:/g, '');
+  if (item.photoRef && !ghost) return <ClothingPhoto key={`${item.photoRef.assetId}-${item.photoRef.status}`} item={item}/>;
   const color = ghost ? '#d9d5ca' : item.primaryColor ? colorHex[item.primaryColor] : '#b7b3ac';
   const kind = item.illustration ?? ({ top: 'tee', bottom: 'trousers', shoes: 'sneakers', outer: 'jacket', one_piece: 'dress', headwear: 'scarf', accessory: 'scarf' } as const)[item.category];
   const stroke = ghost ? '#c5c0b6' : '#24231e';

@@ -1,18 +1,53 @@
 {
-  "name": "outfit-puzzle", "version": "0.1.0", "private": true, "type": "module",
-  "engines": { "node": ">=22" },
+  "name": "outfit-puzzle",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "test": "vitest run", "test:watch": "vitest",
-    "lint": "eslint .", "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "build": "tsc --noEmit && vite build",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "dev:api": "tsx --env-file-if-exists=.env apps/api/src/server.ts",
+    "test:db": "python3 scripts/test-db.py",
+    "test:live": "tsx --env-file-if-exists=.env --env-file-if-exists=.env.worker scripts/smoke-supabase.ts"
   },
-  "dependencies": { "react": "^19.2.0", "react-dom": "^19.2.0", "zod": "^4.1.12", "lucide-react": "^0.468.0" },
+  "dependencies": {
+    "@fastify/cors": "^11.4.3",
+    "@fastify/multipart": "^9.4.0",
+    "@fastify/rate-limit": "^10.3.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "fastify": "^5.12.8",
+    "lucide-react": "^0.468.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "sharp": "^0.34.5",
+    "zod": "^4.1.12"
+  },
   "devDependencies": {
-    "@eslint/js": "^9.39.0", "@playwright/test": "^1.56.1", "@testing-library/react": "^16.3.0", "@testing-library/user-event": "^14.6.1",
-    "@types/node": "^22.19.0", "@types/react": "^19.2.2", "@types/react-dom": "^19.2.2", "@vitejs/plugin-react": "^4.7.0",
-    "eslint": "^9.39.0", "eslint-plugin-react-hooks": "^5.2.0", "globals": "^16.5.0", "jsdom": "^26.1.0", "typescript": "~5.9.3",
-    "typescript-eslint": "^8.46.3", "vite": "^6.4.1", "vite-plugin-singlefile": "^2.3.0", "vitest": "^3.2.4"
+    "@eslint/js": "^9.39.0",
+    "@playwright/test": "^1.56.1",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/node": "^22.19.0",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "@vitejs/plugin-react": "^4.7.0",
+    "eslint": "^9.39.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "globals": "^16.5.0",
+    "jsdom": "^26.1.0",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.3",
+    "vite": "^6.4.1",
+    "vite-plugin-singlefile": "^2.3.0",
+    "vitest": "^3.2.4"
   }
 }

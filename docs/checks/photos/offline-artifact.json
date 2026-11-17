@@ -1,0 +1,9 @@
+{
+  "bytes": 416674,
+  "sha256": "7ad0b784b3bf047188b4cbff23d8f9646ff13a9049d0b8ae65b57beb01ebe3cf",
+  "inline_scripts": 1,
+  "external_html_resources": [],
+  "project_configuration_in_demo": false,
+  "secret_in_cloud_build": false,
+  "scope": "Static artifact audit; browser runtime not verified."
+}

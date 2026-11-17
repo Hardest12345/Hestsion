@@ -1,0 +1,8 @@
+{
+  "status": 200,
+  "wardrobe_table": true,
+  "assets_table": true,
+  "queue_rpc": true,
+  "bucket_status": 200,
+  "bucket_private": true
+}

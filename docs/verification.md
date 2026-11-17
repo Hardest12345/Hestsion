@@ -1,5 +1,7 @@
 # Verifikasi Milestone 1
 
+Laporan historis sebelum fitur foto/cloud. Lihat [verifikasi foto dan Supabase](verification-photos.md) untuk perubahan terbaru; angka dan log M1 di bawah dipertahankan sebagai bukti tahap awal.
+
 Hasil faktual dari perintah yang dijalankan pada checkout ini. Log lengkap berada di `docs/checks/`. Tidak ada pemanggilan API berbayar atau pengujian yang menggunakan secret.
 
 | Perintah | Hasil |

@@ -1,16 +1,18 @@
 # Langkah berikut dan bantuan yang diperlukan
 
+Pembaruan v0.2: upload foto, backend, Auth/RLS/Storage, dan worker segmentasi sudah ditambahkan sebagai bagian awal M2. Koneksi project serta uji dua akun Supabase nyata sudah dilakukan; seluruh akun/foto uji telah dibersihkan. Uji browser/foto nyata dan deployment tetap terpisah. Ikuti [SUPABASE_SETUP.md](SUPABASE_SETUP.md); bagian M2 di bawah adalah roadmap awal dan tidak menyatakan bahwa semua komponennya masih kosong.
+
 ## Sekarang: validasi alur, belum training
 
-Tidak perlu menyiapkan dataset besar, API key, atau akun berbayar untuk menjalankan Studio ini. Masukkan lima pakaian nyata sebagai metadata, lalu coba lima keputusan outfit sungguhan. Catat konteks, keping yang wajib, waktu sampai memilih, alternatif yang diterima/ditolak, alasan penolakan, dan apakah benar dipakai. Angka lima adalah ukuran eksplorasi pribadi, bukan minimum untuk melatih model.
+Tidak perlu menyiapkan dataset training untuk menguji Studio. Kunci koneksi cloud sudah ditangani terpisah dalam environment privat; demo lokal tetap tidak memerlukannya. Masukkan lima pakaian nyata sebagai metadata, lalu coba lima keputusan outfit sungguhan. Catat konteks, keping yang wajib, waktu sampai memilih, alternatif yang diterima/ditolak, alasan penolakan, dan apakah benar dipakai. Angka lima adalah ukuran eksplorasi pribadi, bukan minimum untuk melatih model.
 
 Bantuan pemilik produk yang paling berguna: berikan temuan dari alur tersebut, jenis acara yang paling sering, dan apakah template atasan/bawahan/sepatu/luaran cukup. Kebutuhan dress, hijab, atau aksesori menentukan template lanjutan; kategori itu belum bisa dipasang pada papan awal.
 
 ## Berikutnya: M2 secara bertahap
 
-Langkah terkecil adalah menambahkan satu backend TypeScript dan repository Supabase untuk wardrobe, lalu membuktikan isolasi dua akun test dengan RLS sebelum migrasi data nyata. Setelah boundary itu stabil, tambah penyimpanan outfit atomik, foto privat, dan terakhir Gemini intent terstruktur dengan fallback form.
+Fondasi backend TypeScript, wardrobe Supabase, foto privat, RLS, dan uji dua akun sudah tersedia. Langkah terkecil berikutnya adalah menguji alur browser serta beberapa foto nyata, lalu memilih mesin untuk menjalankan backend/worker jika akan di-host. Sinkronisasi outfit atomik dan Gemini intent terstruktur tetap pekerjaan terpisah sesudah alur foto stabil.
 
-Pada tahap itu diperlukan project Supabase development, dua akun test, dan keputusan batas biaya/retensi log. Gemini API key baru diperlukan saat integrasi NLP dimulai. Secret harus dimasukkan lewat konfigurasi server yang aman, tidak perlu dikirim di chat atau ditaruh pada `VITE_*`. Data demo tidak diunggah otomatis.
+Project Supabase dan dua akun sementara sudah dipakai untuk verifikasi; akun uji telah dihapus. Keputusan batas biaya/retensi log dan hosting worker masih diperlukan sebelum pilot. Gemini API key baru diperlukan saat integrasi NLP dimulai. Secret harus dimasukkan lewat konfigurasi server yang aman, tidak perlu dikirim di chat atau ditaruh pada `VITE_*`. Data demo tidak diunggah otomatis.
 
 ## M3: persiapan dataset ketika memang mulai dibutuhkan
 

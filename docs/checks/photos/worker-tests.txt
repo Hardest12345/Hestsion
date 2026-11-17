@@ -1,0 +1,24 @@
+$ /workspace/work/photo-tests-venv/bin/python -m unittest discover -s services/photo-worker -p test_*.py -v
+test_empty_mask_and_wrong_mask_dimensions_fail (test_pipeline.PipelineTests.test_empty_mask_and_wrong_mask_dimensions_fail) ... ok
+test_existing_alpha_is_not_filled_back_in (test_pipeline.PipelineTests.test_existing_alpha_is_not_filled_back_in) ... ok
+test_lossless_transparency_upscale_and_source_warning (test_pipeline.PipelineTests.test_lossless_transparency_upscale_and_source_warning) ... ok
+test_native_resolution_matting_is_tiled_with_bounded_context (test_pipeline.PipelineTests.test_native_resolution_matting_is_tiled_with_bounded_context) ... ok
+test_non_png_and_oversized_images_fail (test_pipeline.PipelineTests.test_non_png_and_oversized_images_fail) ... ok
+test_secret_key_is_not_sent_as_a_jwt (test_pipeline.PipelineTests.test_secret_key_is_not_sent_as_a_jwt) ... ok
+test_upscale_is_bounded_and_thumbnail_preserves_aspect (test_pipeline.PipelineTests.test_upscale_is_bounded_and_thumbnail_preserves_aspect) ... ok
+test_arbitrary_original_key_rejected_and_job_retried (test_pipeline.QueueTests.test_arbitrary_original_key_rejected_and_job_retried) ... photo_job=33333333-3333-4333-8333-333333333333 status=failed error_type=ValueError
+ok
+test_ready_uses_lease_specific_paths_and_no_public_urls (test_pipeline.QueueTests.test_ready_uses_lease_specific_paths_and_no_public_urls) ... photo_job=33333333-3333-4333-8333-333333333333 status=ready
+ok
+test_stale_lease_cleans_only_its_own_outputs (test_pipeline.QueueTests.test_stale_lease_cleans_only_its_own_outputs) ... photo_job=33333333-3333-4333-8333-333333333333 status=stale
+ok
+test_unknown_completion_preserves_possibly_committed_outputs (test_pipeline.QueueTests.test_unknown_completion_preserves_possibly_committed_outputs) ... photo_job=33333333-3333-4333-8333-333333333333 status=failed error_type=TimeoutError
+photo_job=33333333-3333-4333-8333-333333333333 completion=unknown
+ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.108s
+
+OK
+
+EXIT_CODE=0

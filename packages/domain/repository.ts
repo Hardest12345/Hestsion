@@ -8,40 +8,48 @@ const OutfitSchema = z.object({ id: z.string().min(1), title: z.string().trim().
 export type SavedOutfit = z.infer<typeof OutfitSchema>;
 const EventSchema = z.object({ id: z.string().min(1), type: z.enum(['saved', 'worn', 'preview', 'applied']), outfitId: z.string().nullable(), fingerprint: z.string(), at: z.iso.datetime(), source: OriginSchema, candidateId: z.string().nullable() });
 export const RepositorySchema = z.object({ schemaVersion: z.literal(1), token: z.string().min(1), catalogRevision: z.number().int().nonnegative(), items: z.array(ClothingItemSchema), board: BoardDraftSchema, intent: StyleIntentSchema, draftSource: OriginSchema.default('manual'), draftCandidateId: z.string().nullable().default(null), outfits: z.array(OutfitSchema), events: z.array(EventSchema) }).superRefine((r, ctx) => {
-  if (new Set(r.items.map(i => i.id)).size !== r.items.length || r.items.some(i => i.ownerId !== DEMO_OWNER)) ctx.addIssue({ code: 'custom', message: 'Lemari tidak valid.' });
+  if (new Set(r.items.map(i => i.id)).size !== r.items.length) ctx.addIssue({ code: 'custom', message: 'Lemari tidak valid.' });
   if (new Set(r.outfits.map(o => o.id)).size !== r.outfits.length) ctx.addIssue({ code: 'custom', message: 'ID outfit duplikat.' });
 });
 export type LocalData = z.infer<typeof RepositorySchema>;
 export interface KeyValueStorage { getItem(key: string): string | null; setItem(key: string, value: string): void }
-export const freshData = (): LocalData => ({ schemaVersion: 1, token: crypto.randomUUID(), catalogRevision: 0, items: structuredClone(demoItems), board: emptyBoard(), intent: defaultIntent(), draftSource: 'manual', draftCandidateId: null, outfits: [], events: [] });
-export function readLocal(storage: KeyValueStorage): { data: LocalData; warning: string; blocked: boolean } {
+export const storageKeyFor = (ownerId: string) => ownerId === DEMO_OWNER ? STORAGE_KEY : `${STORAGE_KEY}.account.${ownerId}`;
+function assertOwner(data: LocalData, ownerId: string) {
+  if ([...data.items, ...data.outfits.flatMap(o => o.itemSnapshots)].some(i => i.ownerId !== ownerId)) throw new Error('Data lokal bukan milik akun ini.');
+}
+export const freshData = (ownerId = DEMO_OWNER): LocalData => ({ schemaVersion: 1, token: crypto.randomUUID(), catalogRevision: 0, items: ownerId === DEMO_OWNER ? structuredClone(demoItems) : [], board: emptyBoard(), intent: defaultIntent(), draftSource: 'manual', draftCandidateId: null, outfits: [], events: [] });
+export function readLocal(storage: KeyValueStorage, ownerId = DEMO_OWNER): { data: LocalData; warning: string; blocked: boolean } {
   try {
-    const raw = storage.getItem(STORAGE_KEY);
+    const key = storageKeyFor(ownerId);
+    const raw = storage.getItem(key);
     if (raw === null) {
-      const data = freshData(); storage.setItem(STORAGE_KEY, JSON.stringify(data));
+      const data = freshData(ownerId); storage.setItem(key, JSON.stringify(data));
       return { data, warning: '', blocked: false };
     }
     const data = RepositorySchema.parse(JSON.parse(raw));
+    assertOwner(data, ownerId);
     return { data, warning: '', blocked: false };
   } catch {
-    const temporary = freshData(); temporary.items = [];
+    const temporary = freshData(ownerId); temporary.items = [];
     return { data: temporary, warning: 'Data lokal tidak bisa dibaca atau penyimpanan diblokir. Mode sementara aktif; data lama tidak ditimpa. Unduh cadangan sebelum mereset.', blocked: true };
   }
 }
-export function writeLocal(storage: KeyValueStorage, previousToken: string, next: LocalData): LocalData {
-  const raw = storage.getItem(STORAGE_KEY);
+export function writeLocal(storage: KeyValueStorage, previousToken: string, next: LocalData, ownerId = DEMO_OWNER): LocalData {
+  const key = storageKeyFor(ownerId);
+  assertOwner(next, ownerId);
+  const raw = storage.getItem(key);
   if (raw !== null) {
     const current = RepositorySchema.parse(JSON.parse(raw));
     if (current.token !== previousToken) throw new Error('Data berubah di tab lain. Muat ulang untuk memakai perubahan terbaru.');
   } else throw new Error('Data lokal telah dihapus di tab lain. Muat ulang terlebih dahulu.');
   const saved = RepositorySchema.parse({ ...next, token: crypto.randomUUID() });
-  storage.setItem(STORAGE_KEY, JSON.stringify(saved));
+  storage.setItem(key, JSON.stringify(saved));
   return saved;
 }
-export function saveOutfit(data: LocalData, title: string, source: SavedOutfit['source']): SavedOutfit {
+export function saveOutfit(data: LocalData, title: string, source: SavedOutfit['source'], ownerId = DEMO_OWNER): SavedOutfit {
   if (!title.trim() || title.trim().length > 80) throw new Error('Nama outfit wajib diisi, maksimal 80 karakter.');
   if (!Object.values(data.board.slots).some(Boolean)) throw new Error('Pasang minimal satu keping sebelum menyimpan.');
-  const errors = validateBoard(data.board, data.items, DEMO_OWNER);
+  const errors = validateBoard(data.board, data.items, ownerId);
   if (errors.length) throw new Error(errors.join(' '));
   return { id: crypto.randomUUID(), title: title.trim(), version: 1, board: structuredClone(data.board), itemSnapshots: structuredClone(data.items.filter(i => Object.values(data.board.slots).includes(i.id))), createdAt: new Date().toISOString(), favorite: false, archived: false, source };
 }

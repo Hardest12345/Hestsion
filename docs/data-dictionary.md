@@ -12,3 +12,11 @@
 | LocalData | schemaVersion 1, token optimistic, catalogRevision, items, board, intent, draftSource/draftCandidateId, outfits, events. Ditulis ke `outfit-puzzle.local.v1`. |
 
 Tanggal dipakai memakai zona waktu perangkat/browser. Tidak ada transfer data ke server atau consent training pada versi ini. Kontrak multiakun dan logging produksi tetap mengikuti roadmap M2, bukan data lokal ini.
+
+## Ekstensi foto/cloud v0.2
+
+Mode cloud sekarang menyimpan pakaian dan foto melalui Supabase. Paragraf local.v1 di atas menggambarkan demo awal; outfit/wear log tetap lokal dan bukan ledger produksi.
+
+`ClothingItem.photoRef` opsional memuat `assetId`, `status` queued/processing/ready/failed, `originalKey`, `cutoutKey`, `thumbnailKey`, dimensi output nullable, warning `low_resolution`, `errorCode`, dan `pipelineVersion`. Tidak ada byte foto atau signed URL dalam cache lokal. Cache per akun memakai `outfit-puzzle.local.v1.account.<userId>`; demo memakai key awal dan tidak di-seed pada akun cloud.
+
+`clothing_items` cloud berkey komposit user_id/id dan menyimpan metadata tervalidasi + pointer aset aktif. `clothing_assets` memuat original dan output per lease, status job, attempts, lease token/expiry, dimensi, dan warning. Pointer FK mengikat owner/item yang sama. Metadata foto lama dipertahankan pada snapshot outfit; bila aset aslinya telah dihapus, tampilkan foto tidak tersedia, bukan meminjam aset akun lain.
